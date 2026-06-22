@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RISHIT | HUB</title>
+
+    <!-- Premium Typography -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@100;400;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Core Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            cursor: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .font-syne {
+            font-family: 'Syne', sans-serif;
+        }
+
+        /* Mobile specific adjustments to ensure no custom cursor glitching */
+        @media (pointer: coarse) {
+            body {
+                cursor: auto;
+            }
+
+            #crosshair {
+                display: none !important;
+            }
+        }
+
+        /* 3D Canvas Container */
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Technical Custom Cursor */
+        #crosshair {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+            z-index: 100000;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.1s;
+            mix-blend-mode: difference;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+            transition: background 0.3s;
+        }
+
+        #crosshair::before {
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            transform: translateY(-50%);
+        }
+
+        #crosshair::after {
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            transform: translateX(-50%);
+        }
+
+        #crosshair.hovered {
+            width: 60px;
+            height: 60px;
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        /* Initial Boot Screen */
+        #boot-screen {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Nav Link Hover Effects */
+        .nav-link {
+            position: relative;
+            padding: 0.5rem 0.35rem;
+            /* Tighter padding for mobile to fit larger text in one row */
+            color: rgba(255, 255, 255, 0.8);
+            transition: color 0.3s ease;
+            text-align: center;
+            display: inline-block;
+            white-space: nowrap;
+            /* Prevent text wrapping inside links */
+        }
+
+        @media (min-width: 400px) {
+            .nav-link {
+                padding: 0.5rem 0.6rem;
+            }
+        }
+
+        @media (min-width: 640px) {
+            .nav-link {
+                padding: 0.75rem 1rem;
+                /* Larger padding for desktop */
+            }
+        }
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0%;
+            height: 1px;
+            background: white;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(-50%);
+        }
+
+        .nav-link:hover {
+            color: white;
+        }
+
+        .nav-link:hover::before {
+            width: 100%;
+        }
+
+        /* Text Legibility & Liquid Glass Classes */
+        .vignette-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(0, 0, 0, 0.75) 0%, transparent 65%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .liquid-glass-heading {
+            background: linear-gradient(135deg,
+                    rgba(255, 255, 255, 0.6) 0%,
+                    rgba(255, 255, 255, 0.05) 35%,
+                    rgba(255, 255, 255, 0.4) 35.1%,
+                    /* Sharp, static glass edge reflection */
+                    rgba(255, 255, 255, 0.05) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.5);
+            /* Overlay blend mode causes the text to dynamically light up and tint as the background WebGL shader moves behind it */
+            mix-blend-mode: overlay;
+            filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.8));
+        }
+
+        .liquid-glass-sub {
+            background: linear-gradient(135deg,
+                    rgba(255, 255, 255, 0.8) 0%,
+                    rgba(255, 255, 255, 0.2) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.3);
+            mix-blend-mode: overlay;
+            filter: drop-shadow(0px 4px 10px rgba(0, 0, 0, 0.8));
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ================= BOOT SCREEN ================= -->
+    <div id="boot-screen">
+        <canvas id="spiral-canvas" class="absolute z-0 opacity-100 pointer-events-none"></canvas>
+    </div>
+
+    <!-- Custom Cursor -->
+    <div id="crosshair"></div>
+
+    <!-- WebGL Background -->
+    <div id="canvas-container"></div>
+
+    <!-- ================= MAIN MINIMAL UI ================= -->
+    <main class="fixed inset-0 z-10 flex flex-col items-center justify-center pointer-events-none opacity-0"
+        id="main-ui">
+
+        <!-- Dark Vignette for Text Contrast -->
+        <div class="vignette-overlay"></div>
+
+        <div class="relative flex flex-col items-center justify-center w-full h-full p-2 sm:p-6 text-center z-10">
+            <!-- Massive Main Title -->
+            <h1
+                class="pointer-events-none liquid-glass-heading z-10 text-center text-6xl min-[400px]:text-7xl md:text-8xl lg:text-9xl leading-none font-syne font-bold tracking-tighter">
+                RISHIT HUB
+            </h1>
+
+            <!-- Sleek Subtext -->
+            <p
+                class="pointer-events-none liquid-glass-sub z-10 mt-4 md:mt-6 text-center text-[10px] min-[400px]:text-xs md:text-base font-extralight tracking-[0.2em] sm:tracking-[0.3em] uppercase px-2 w-full">
+                Centralized Architecture & Engineering
+            </p>
+
+            <!-- Minimalist Navigation Array -->
+            <nav class="z-20 mt-10 md:mt-20 flex flex-row flex-nowrap justify-center items-center gap-1 min-[400px]:gap-3 sm:gap-6 md:gap-10 text-[10px] min-[400px]:text-xs sm:text-sm uppercase tracking-widest pointer-events-auto w-full px-1"
+                style="filter: drop-shadow(0px 5px 15px rgba(0,0,0,0.9));">
+                <a href="https://linkedout.rishit.site" target="_blank" rel="noopener noreferrer"
+                    class="nav-link nav-interact">Project Links</a>
+                <a href="https://portfolio.rishit.site" class="nav-link nav-interact">Portfolio</a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer"
+                    class="nav-link nav-interact">GitHub</a>
+                <a href="#" target="_blank" rel="noopener noreferrer" class="nav-link nav-interact">Resume</a>
+            </nav>
+        </div>
+
+    </main>
+
+    <script>
+        const isMobile = window.innerWidth < 768;
+
+        // ==========================================
+        // 1. SPIRAL LOADING ANIMATION (Elixr Bootloader)
+        // ==========================================
+        class Vector2D {
+            constructor(x, y) { this.x = x; this.y = y; }
+            static random(min, max) { return min + Math.random() * (max - min); }
+        }
+        class Vector3D {
+            constructor(x, y, z) { this.x = x; this.y = y; this.z = z; }
+            static random(min, max) { return min + Math.random() * (max - min); }
+        }
+        class Star {
+            constructor(cameraZ, cameraTravelDistance) {
+                this.angle = Math.random() * Math.PI * 2;
+                this.distance = 30 * Math.random() + 15;
+                this.rotationDirection = Math.random() > 0.5 ? 1 : -1;
+                this.expansionRate = 1.2 + Math.random() * 0.8;
+                this.finalScale = 0.7 + Math.random() * 0.6;
+                this.dx = this.distance * Math.cos(this.angle);
+                this.dy = this.distance * Math.sin(this.angle);
+                this.spiralLocation = (1 - Math.pow(1 - Math.random(), 3.0)) / 1.3;
+                this.z = Vector2D.random(0.5 * cameraZ, cameraTravelDistance + cameraZ);
+                const lerp = (a, b, t) => a * (1 - t) + b * t;
+                this.z = lerp(this.z, cameraTravelDistance / 2, 0.3 * this.spiralLocation);
+                this.strokeWeightFactor = Math.pow(Math.random(), 2.0);
+            }
+            render(p, controller) {
+                const spiralPos = controller.spiralPath(this.spiralLocation);
+                const q = p - this.spiralLocation;
+                if (q <= 0) return;
+                const disp = controller.constrain(4 * q, 0, 1);
+                const lin = disp;
+                const elas = controller.easeOutElastic(disp);
+                const pow2 = Math.pow(disp, 2);
+                let easing;
+                if (disp < 0.3) easing = controller.lerp(lin, pow2, disp / 0.3);
+                else if (disp < 0.7) {
+                    const t = (disp - 0.3) / 0.4;
+                    easing = controller.lerp(pow2, elas, t);
+                } else easing = elas;
+                let x, y;
+                if (disp < 0.3) {
+                    x = controller.lerp(spiralPos.x, spiralPos.x + this.dx * 0.3, easing / 0.3);
+                    y = controller.lerp(spiralPos.y, spiralPos.y + this.dy * 0.3, easing / 0.3);
+                } else if (disp < 0.7) {
+                    const m = (disp - 0.3) / 0.4;
+                    const curve = Math.sin(m * Math.PI) * this.rotationDirection * 1.5;
+                    const baseX = spiralPos.x + this.dx * 0.3;
+                    const baseY = spiralPos.y + this.dy * 0.3;
+                    const targetX = spiralPos.x + this.dx * 0.7;
+                    const targetY = spiralPos.y + this.dy * 0.7;
+                    const perpX = -this.dy * 0.4 * curve;
+                    const perpY = this.dx * 0.4 * curve;
+                    x = controller.lerp(baseX, targetX, m) + perpX * m;
+                    y = controller.lerp(baseY, targetY, m) + perpY * m;
+                } else {
+                    const f = (disp - 0.7) / 0.3;
+                    const baseX = spiralPos.x + this.dx * 0.7;
+                    const baseY = spiralPos.y + this.dy * 0.7;
+                    const targetD = this.distance * this.expansionRate * 1.5;
+                    const turns = 1.2 * this.rotationDirection;
+                    const a = this.angle + turns * f * Math.PI;
+                    const tx = spiralPos.x + targetD * Math.cos(a);
+                    const ty = spiralPos.y + targetD * Math.sin(a);
+                    x = controller.lerp(baseX, tx, f);
+                    y = controller.lerp(baseY, ty, f);
+                }
+                const vx = (this.z - controller.cameraZ) * x / controller.viewZoom;
+                const vy = (this.z - controller.cameraZ) * y / controller.viewZoom;
+                const pos = new Vector3D(vx, vy, this.z);
+                let size = 1.0;
+                if (disp < 0.6) size = 1.0 + disp * 0.2;
+                else {
+                    const t = (disp - 0.6) / 0.4;
+                    size = 1.2 * (1.0 - t) + this.finalScale * t;
+                }
+                const dot = (isMobile ? 7.0 : 12.0) * this.strokeWeightFactor * size;
+                controller.showProjectedDot(pos, dot);
+            }
+        }
+        class AnimationController {
+            constructor(canvas, ctx, dpr, size) {
+                this.canvas = canvas;
+                this.ctx = ctx;
+                this.dpr = dpr;
+                this.size = size;
+                this.timeline = gsap.timeline({ repeat: -1 });
+                this.time = 0;
+                this.stars = [];
+                this.changeEventTime = 0.32;
+                this.cameraZ = -400;
+                this.cameraTravelDistance = 3400;
+                this.startDotYOffset = 28;
+                this.viewZoom = 100;
+                this.numberOfStars = isMobile ? 1500 : 5000;
+                this.trailLength = 80;
+                this.setupRandomGenerator();
+                this.setupTimeline();
+            }
+            setupRandomGenerator() {
+                const originalRandom = Math.random;
+                const customRandom = () => {
+                    let seed = 1234;
+                    return () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+                };
+                Math.random = customRandom();
+                this.createStars();
+                Math.random = originalRandom;
+            }
+            createStars() {
+                for (let i = 0; i < this.numberOfStars; i++) this.stars.push(new Star(this.cameraZ, this.cameraTravelDistance));
+            }
+            setupTimeline() {
+                this.timeline.to(this, { time: 1, duration: 7.5, repeat: -1, ease: 'none', onUpdate: () => this.render() });
+            }
+            ease(p, g) { return p < 0.5 ? 0.5 * Math.pow(2 * p, g) : 1 - 0.5 * Math.pow(2 * (1 - p), g); }
+            easeOutElastic(x) {
+                const c4 = (2 * Math.PI) / 4.5;
+                if (x <= 0) return 0; if (x >= 1) return 1;
+                return Math.pow(2, -8 * x) * Math.sin((x * 8 - 0.75) * c4) + 1;
+            }
+            map(v, a1, b1, a2, b2) { return a2 + (b2 - a2) * ((v - a1) / (b1 - a1)); }
+            constrain(v, min, max) { return Math.min(Math.max(v, min), max); }
+            lerp(a, b, t) { return a * (1 - t) + b * t; }
+            spiralPath(p) {
+                p = this.constrain(1.2 * p, 0, 1); p = this.ease(p, 1.8);
+                const turns = 6; const theta = 2 * Math.PI * turns * Math.sqrt(p);
+
+                // Dynamically scale radius based on screen size so it ALWAYS covers the mobile screen
+                const maxR = isMobile ? this.size * 0.6 : 300;
+                const r = maxR * Math.sqrt(p);
+                return new Vector2D(r * Math.cos(theta), r * Math.sin(theta) + this.startDotYOffset);
+            }
+            rotate(v1, v2, p, orientation) {
+                const middle = new Vector2D((v1.x + v2.x) / 2, (v1.y + v2.y) / 2);
+                const dx = v1.x - middle.x; const dy = v1.y - middle.y; const angle = Math.atan2(dy, dx);
+                const o = orientation ? -1 : 1; const r = Math.sqrt(dx * dx + dy * dy);
+                const bounce = Math.sin(p * Math.PI) * 0.05 * (1 - p);
+                return new Vector2D(
+                    middle.x + r * (1 + bounce) * Math.cos(angle + o * Math.PI * this.easeOutElastic(p)),
+                    middle.y + r * (1 + bounce) * Math.sin(angle + o * Math.PI * this.easeOutElastic(p))
+                );
+            }
+            showProjectedDot(position, sizeFactor) {
+                const t2 = this.constrain(this.map(this.time, this.changeEventTime, 1, 0, 1), 0, 1);
+                const newCameraZ = this.cameraZ + this.ease(Math.pow(t2, 1.2), 1.8) * this.cameraTravelDistance;
+                if (position.z > newCameraZ) {
+                    const d = position.z - newCameraZ;
+                    const x = (this.viewZoom * position.x) / d; const y = (this.viewZoom * position.y) / d;
+                    const sw = (400 * sizeFactor) / d;
+                    this.ctx.lineWidth = sw; this.ctx.beginPath(); this.ctx.arc(x, y, 0.5, 0, Math.PI * 2); this.ctx.fill();
+                }
+            }
+            drawStartDot() {
+                if (this.time > this.changeEventTime) {
+                    const dy = (this.cameraZ * this.startDotYOffset) / this.viewZoom;
+                    const pos = new Vector3D(0, dy, this.cameraTravelDistance);
+                    this.showProjectedDot(pos, 2.5);
+                }
+            }
+            drawTrail(t1) {
+                for (let i = 0; i < this.trailLength; i++) {
+                    const f = this.map(i, 0, this.trailLength, 1.1, 0.1);
+                    const sw = (1.3 * (1 - t1) + 3.0 * Math.sin(Math.PI * t1)) * f;
+                    this.ctx.fillStyle = 'white'; this.ctx.lineWidth = sw;
+                    const pathTime = t1 - 0.00015 * i; const position = this.spiralPath(pathTime);
+                    const basePos = position; const offset = new Vector2D(position.x + 5, position.y + 5);
+                    const rotated = this.rotate(basePos, offset, Math.sin(this.time * Math.PI * 2) * 0.5 + 0.5, i % 2 === 0);
+                    this.ctx.beginPath(); this.ctx.arc(rotated.x, rotated.y, sw / 2, 0, Math.PI * 2); this.ctx.fill();
+                }
+            }
+            render() {
+                const ctx = this.ctx; if (!ctx) return;
+                ctx.fillStyle = 'black'; ctx.fillRect(0, 0, this.size, this.size);
+                ctx.save(); ctx.translate(this.size / 2, this.size / 2);
+                const t1 = this.constrain(this.map(this.time, 0, this.changeEventTime + 0.25, 0, 1), 0, 1);
+                const t2 = this.constrain(this.map(this.time, this.changeEventTime, 1, 0, 1), 0, 1);
+                ctx.rotate(-Math.PI * this.ease(t2, 2.7));
+                this.drawTrail(t1);
+                ctx.fillStyle = 'white'; for (const star of this.stars) star.render(t1, this);
+                this.drawStartDot(); ctx.restore();
+            }
+            destroy() { this.timeline.kill(); }
+        }
+
+        let spiralAnim = null;
+        function initSpiralAnimation() {
+            const canvas = document.getElementById('spiral-canvas');
+            const ctx = canvas.getContext('2d');
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const size = Math.max(width, height);
+
+            const dpr = isMobile ? Math.min(window.devicePixelRatio || 1, 1.5) : (window.devicePixelRatio || 1);
+
+            canvas.width = size * dpr;
+            canvas.height = size * dpr;
+
+            canvas.style.width = `${size}px`;
+            canvas.style.height = `${size}px`;
+
+            canvas.style.left = `${(width - size) / 2}px`;
+            canvas.style.top = `${(height - size) / 2}px`;
+
+            ctx.scale(dpr, dpr);
+            spiralAnim = new AnimationController(canvas, ctx, dpr, size);
+        }
+
+        // ==========================================
+        // 2. BOOT SEQUENCE LOGIC
+        // ==========================================
+        window.onload = () => {
+            initSpiralAnimation();
+            initShaderLines();
+
+            setTimeout(() => {
+                gsap.to('#boot-screen', {
+                    opacity: 0,
+                    duration: 1.5,
+                    ease: 'power2.inOut',
+                    onComplete: () => {
+                        document.getElementById('boot-screen').style.display = 'none';
+                        if (spiralAnim) spiralAnim.destroy();
+                    }
+                });
+
+                gsap.to('#main-ui', {
+                    opacity: 1,
+                    duration: 2.0,
+                    delay: 0.2,
+                    ease: 'power2.out'
+                });
+            }, 5000);
+        };
+
+        // ==========================================
+        // 3. SHADER LINES WEBGL (Ported from React)
+        // ==========================================
+        let shaderScene, shaderCamera, shaderRenderer, shaderUniforms;
+        let shaderAnimationId;
+        const shaderClock = new THREE.Clock();
+
+        function initShaderLines() {
+            const container = document.getElementById('canvas-container');
+            container.innerHTML = "";
+
+            shaderCamera = new THREE.Camera();
+            shaderCamera.position.z = 1;
+
+            shaderScene = new THREE.Scene();
+
+            const geometry = new THREE.PlaneGeometry(2, 2);
+
+            shaderUniforms = {
+                time: { type: "f", value: 1.0 },
+                resolution: { type: "v2", value: new THREE.Vector2() }
+            };
+
+            const vertexShader = `
+                void main() {
+                    gl_Position = vec4( position, 1.0 );
+                }
+            `;
+
+            const fragmentShader = `
+                #define TWO_PI 6.2831853072
+                #define PI 3.14159265359
+
+                precision highp float;
+                uniform vec2 resolution;
+                uniform float time;
+                
+                float random (in float x) {
+                    return fract(sin(x)*1e4);
+                }
+                float random (vec2 st) {
+                    return fract(sin(dot(st.xy, vec2(12.9898,78.233)))*43758.5453123);
+                }
+                
+                varying vec2 vUv;
+
+                void main(void) {
+                    // PC View logic restored perfectly
+                    vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+                    
+                    // Mobile fix: Extends the visual ring up but zooms it out slightly more (0.6 instead of 0.45) so it's not overwhelming
+                    if (resolution.y > resolution.x) {
+                        uv *= 0.6;
+                    }
+                    
+                    vec2 fMosaicScal = vec2(4.0, 2.0);
+                    vec2 vScreenSize = vec2(256,256);
+                    uv.x = floor(uv.x * vScreenSize.x / fMosaicScal.x) / (vScreenSize.x / fMosaicScal.x);
+                    uv.y = floor(uv.y * vScreenSize.y / fMosaicScal.y) / (vScreenSize.y / fMosaicScal.y);       
+                    
+                    float t = time*0.06+random(uv.x)*0.4;
+                    float lineWidth = 0.0008;
+
+                    vec3 color = vec3(0.0);
+                    for(int j = 0; j < 3; j++){
+                        for(int i=0; i < 5; i++){
+                            color[j] += lineWidth*float(i*i) / abs(fract(t - 0.01*float(j)+float(i)*0.01)*1.0 - length(uv));        
+                        }
+                    }
+
+                    gl_FragColor = vec4(color[2],color[1],color[0],1.0);
+                }
+            `;
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: shaderUniforms,
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            shaderScene.add(mesh);
+
+            shaderRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            const dpr = isMobile ? Math.min(window.devicePixelRatio, 1.5) : window.devicePixelRatio;
+            shaderRenderer.setPixelRatio(dpr);
+            container.appendChild(shaderRenderer.domElement);
+
+            window.addEventListener('resize', onShaderResize, false);
+            onShaderResize();
+            animateShader();
+        }
+
+        function onShaderResize() {
+            if (!shaderRenderer) return;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            shaderRenderer.setSize(width, height);
+            shaderUniforms.resolution.value.x = shaderRenderer.domElement.width;
+            shaderUniforms.resolution.value.y = shaderRenderer.domElement.height;
+        }
+
+        function animateShader() {
+            shaderAnimationId = requestAnimationFrame(animateShader);
+            shaderUniforms.time.value = shaderClock.getElapsedTime() * 3.0;
+            shaderRenderer.render(shaderScene, shaderCamera);
+        }
+
+        // ==========================================
+        // 4. CUSTOM CURSOR
+        // ==========================================
+        const cursor = document.getElementById('crosshair');
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let targetMouseX = mouseX;
+        let targetMouseY = mouseY;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function animateCursor() {
+            targetMouseX += (mouseX - targetMouseX) * 0.2;
+            targetMouseY += (mouseY - targetMouseY) * 0.2;
+            cursor.style.left = targetMouseX + 'px';
+            cursor.style.top = targetMouseY + 'px';
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        document.querySelectorAll('.nav-interact').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('hovered'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('hovered'));
+
+            // Vaporize Effect on Click
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                const href = this.getAttribute('href');
+                const target = this.getAttribute('target') || '_self';
+
+                vaporizeElement(this, () => {
+                    window.open(href, target);
+                    // Restore link visibility after a delay in case user returns to tab
+                    setTimeout(() => { this.style.opacity = '1'; }, 2500);
+                });
+            });
+        });
+
+        // ------------------------------------------------------------ //
+        // 5. VAPORIZE TEXT EFFECT (Vanilla JS Port)
+        // ------------------------------------------------------------ //
+        function vaporizeElement(element, onComplete) {
+            if (element.isVaporizing) return;
+            element.isVaporizing = true;
+
+            const rect = element.getBoundingClientRect();
+            const style = window.getComputedStyle(element);
+            const text = element.innerText;
+
+            const canvas = document.createElement('canvas');
+            canvas.style.position = 'fixed';
+            canvas.style.left = rect.left + 'px';
+            canvas.style.top = rect.top + 'px';
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.zIndex = '999999';
+            document.body.appendChild(canvas);
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.scale(dpr, dpr);
+
+            ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+            ctx.fillStyle = style.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Draw text in center of canvas (matches inline-block padding visually)
+            ctx.fillText(text, rect.width / 2, rect.height / 2);
+
+            // Hide the original DOM element
+            element.style.opacity = '0';
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const particles = [];
+            const sampleRate = dpr > 1 ? 2 : 1;
+            const boundsWidth = canvas.width;
+
+            for (let y = 0; y < canvas.height; y += sampleRate) {
+                for (let x = 0; x < canvas.width; x += sampleRate) {
+                    const i = (y * canvas.width + x) * 4;
+                    if (data[i + 3] > 0) {
+                        particles.push({
+                            x: x / dpr,
+                            y: y / dpr,
+                            vx: (Math.random() - 0.5) * 2 + 0.5, // Push slightly right (Slower)
+                            vy: (Math.random() - 0.5) * 2 - 0.25, // Push slightly up (Slower)
+                            life: 1,
+                            delay: (x / boundsWidth) * 800, // Left-to-right wave delay (Slower sweep)
+                            active: false,
+                            color: `rgba(${data[i]}, ${data[i + 1]}, ${data[i + 2]}, `
+                        });
+                    }
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let startTime = performance.now();
+
+            function animate(time) {
+                let elapsed = time - startTime;
+                ctx.clearRect(0, 0, rect.width, rect.height);
+
+                let allDead = true;
+
+                particles.forEach(p => {
+                    if (elapsed > p.delay) {
+                        p.active = true;
+                    }
+                    if (p.active && p.life > 0) {
+                        allDead = false;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vx *= 0.94; // Friction (adjusted for smoother floating)
+                        p.vy *= 0.94;
+                        p.life -= 0.012; // Fade out speed (Slower fade)
+
+                        ctx.fillStyle = p.color + Math.max(0, p.life) + ')';
+                        ctx.fillRect(p.x, p.y, 1.5, 1.5);
+                    } else if (!p.active) {
+                        allDead = false;
+                        // Keep original pixels static until wave hits them
+                        ctx.fillStyle = p.color + '1)';
+                        ctx.fillRect(p.x, p.y, 1 / dpr, 1 / dpr);
+                    }
+                });
+
+                if (allDead && elapsed > 500) {
+                    document.body.removeChild(canvas);
+                    element.isVaporizing = false;
+                    if (onComplete) onComplete();
+                    return;
+                }
+                requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+        }
+
+    </script>
+</body>
+
+</html>
